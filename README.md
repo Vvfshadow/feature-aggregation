@@ -18,7 +18,7 @@ We also use our model to generate pseudo-labels for unlabeled train data, but it
 You can specify more parameters in opt.py
 
 ```
-python main.py --mode train --data_path <path/to/Market-1501-v15.09.15> 
+python main.py --mode train --data_path <path/to/dataset> 
 ```
 
 ## Evaluate
@@ -26,7 +26,7 @@ python main.py --mode train --data_path <path/to/Market-1501-v15.09.15>
 Use pretrained weight or your trained weight
 
 ```
-python main.py --mode evaluate --data_path <path/to/Market-1501-v15.09.15> --weight <path/to/weight_name.pt> 
+python main.py --mode evaluate --data_path <path/to/dataset> --weight <path/to/weight_name.pt> 
 ```
 
 ## Visualize
@@ -34,8 +34,6 @@ python main.py --mode evaluate --data_path <path/to/Market-1501-v15.09.15> --wei
 Visualize rank10 query result of one image(query from bounding_box_test)
 
 Extract features will take a few munutes, or you can save features as .mat file for multiple uses
-
-![image](https://s1.ax1x.com/2018/11/27/FV9xyj.png)
 
 ```
 python main.py --mode vis --query_image <path/to/query_image> --weight <path/to/weight_name.pt> 
