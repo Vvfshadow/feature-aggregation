@@ -17,4 +17,4 @@ mAP(single cam): 0.860
 
 mAP(cross cam): 0.484
 
-#### If you have any question, please contact us by E-mail (dengwj16@gmail.com) or open an issue in this project. Thanks.
+#### If you have any question, please contact us by E-mail (370786243@qq.com) or open an issue in this project. Thanks.
