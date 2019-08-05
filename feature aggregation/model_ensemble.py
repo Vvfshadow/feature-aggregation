@@ -55,7 +55,7 @@ pose_path = 'weights_pose/model.pt'
 jitter_path = 'weights/model.pt'
 
 data_pose = Data_pose()
-data_norm = Data()
+data_jitter = Data()
 
 model_pose = MGN_pose().to('cuda')
 model_jitter = MGN().to('cuda')
@@ -70,8 +70,8 @@ model_jitter.eval()
 qf_pose = extract_feature_pose(model_pose, tqdm(data_pose.query_loader)).numpy()
 gf_pose = extract_feature_pose(model_pose, tqdm(data_pose.test_loader)).numpy()
 
-qf_jitter = extract_feature(model_jitter, tqdm(data_norm.query_loader)).numpy()
-gf_jitter = extract_feature(model_jitter, tqdm(data_norm.test_loader)).numpy()
+qf_jitter = extract_feature(model_jitter, tqdm(data_jitter.query_loader)).numpy()
+gf_jitter = extract_feature(model_jitter, tqdm(data_jitter.test_loader)).numpy()
 
 
 qf = np.concatenate((qf_pose, qf_jitter), 1)
@@ -92,14 +92,14 @@ os.makedirs(epoch_json)
 
 #########################no re rank##########################
 dist = cdist(qf, gf)
-result(dist, data_norm.queryset.ids, data_norm.testset.ids, title='without rerank')
+result(dist, data_jitter.queryset.ids, data_jitter.testset.ids, title='without rerank')
 
 #########################   re rank##########################
 q_g_dist = np.dot(qf, np.transpose(gf))
 q_q_dist = np.dot(qf, np.transpose(qf))
 g_g_dist = np.dot(gf, np.transpose(gf))
 dist = re_ranking(q_g_dist, q_q_dist, g_g_dist)
-result(dist, data_norm.queryset.ids, data_norm.testset.ids, title='rerank')
+result(dist, data_jitter.queryset.ids, data_jitter.testset.ids, title='rerank')
 
 #########################   query expansion##########################
 qf_new = []
