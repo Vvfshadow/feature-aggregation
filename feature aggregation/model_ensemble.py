@@ -118,9 +118,9 @@ q_g_dist = np.dot(qf, np.transpose(gf))
 q_q_dist = np.dot(qf, np.transpose(qf))
 g_g_dist = np.dot(gf, np.transpose(gf))
 dist = re_ranking(q_g_dist, q_q_dist, g_g_dist)
-# np.save('/home/vvf/github/ReID-MGN/metric_label/dist.npy', dist)
-# np.save('/home/vvf/github/ReID-MGN/metric_label/query_ids.npy', data_norm.queryset.ids)
-# np.save('/home/vvf/github/ReID-MGN/metric_label/gallery_ids.npy', data_norm.testset.ids)
+# np.save('metric_label/dist.npy', dist)
+# np.save('metric_label/query_ids.npy', data_jitter.queryset.ids)
+# np.save('metric_label/gallery_ids.npy', data_jitter.testset.ids)
 
-result(dist, data_norm.queryset.ids, data_norm.testset.ids, title='query_expansion')
+result(dist, data_jitter.queryset.ids, data_jitter.testset.ids, title='query_expansion')
 
