@@ -7,12 +7,11 @@ The code is modified from [ReID-MGN](https://github.com/GNAYUOHZ/ReID-MGN), you 
 Our method is simple and straight-forward: we use ResNet-50 (pretrained on ImageNet) as backbone, and funetune it by using the given training dataset only. To effectively extract part features, we utilize two strategies: 1) uniformly partition in the feature maps; 2) use pose information to divide feature maps.
 
 We modify the cvwc2019 dataset through rotating data that is not conducive to training.  
-'new_keypoints_train.json' 
-'new_modified_keypoints_train.json'
+'new_keypoints_train.json' denotes that we adjust keypoints coordinates to fit the input image size.
+'new_modified_keypoints_train.json' denotes that we also rotate the coordinates of the corresponding keypoints.
 
 We also use our model to generate pseudo-labels for unlabeled train data, but it`s no time to finetune.
-'reid_list_train30_358.csv'
-'reid_list_train70_427.csv'
+'reid_list_train30_358.csv' means that we use the top 30 percent confidence image ids to group together into one class for every query ids. 'reid_list_train70_427.csv' is in the same way.
 ## Train
 
 You can specify more parameters in opt.py
