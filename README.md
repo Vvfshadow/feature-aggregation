@@ -7,6 +7,7 @@ The code is modified from [ReID-MGN](https://github.com/GNAYUOHZ/ReID-MGN), you 
 We modify the cvwc2019 dataset through rotating data that is not conducive to training.  
 'new_keypoints_train.json' 
 'new_modified_keypoints_train.json'
+
 We also use our model to generate pseudo-labels for unlabeled train data, but it`s no time to finetune.
 'reid_list_train30_358.csv'
 'reid_list_train70_427.csv'
