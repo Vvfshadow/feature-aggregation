@@ -2,7 +2,9 @@
 Baseline model for Amur Tiger Reid (using cross entropy loss and triplet loss).
 
 # Baseline
-The code is modified from [ReID-MGN](https://github.com/GNAYUOHZ/ReID-MGN), you can check each folder's purpose by yourself.Our method is simple and straight-forward: we use ResNet-50 (pretrained on ImageNet) as backbone, and funetune it by using the given training dataset only. To effectively extract part features, we utilize two strategies: 1) uniformly partition in the feature maps; 2) use pose information to divide feature maps.
+The code is modified from [ReID-MGN](https://github.com/GNAYUOHZ/ReID-MGN), you can check each folder's purpose by yourself.
+
+Our method is simple and straight-forward: we use ResNet-50 (pretrained on ImageNet) as backbone, and funetune it by using the given training dataset only. To effectively extract part features, we utilize two strategies: 1) uniformly partition in the feature maps; 2) use pose information to divide feature maps.
 
 We modify the cvwc2019 dataset through rotating data that is not conducive to training.  
 'new_keypoints_train.json' 
