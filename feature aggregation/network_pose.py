@@ -1,4 +1,3 @@
-# from .backbones.torchvision_models import densenet121, Bottleneck, Transition
 import copy
 import math
 import torch
@@ -10,242 +9,6 @@ import cv2
 from maskrcnn_benchmark.modeling.poolers import Pooler
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 num_classes = 107  # change this depend on your dataset
-
-class PAM_Module(nn.Module):
-    """ Position attention module"""
-    #Ref from SAGAN
-    def __init__(self, in_dim):
-        super(PAM_Module, self).__init__()
-        self.chanel_in = in_dim // 2
-
-        self.query_conv = nn.Conv2d(in_channels=in_dim, out_channels=self.chanel_in, kernel_size=1)
-        self.key_conv = nn.Conv2d(in_channels=in_dim, out_channels=self.chanel_in, kernel_size=1)
-        self.value_conv = nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1)
-        # self.query_conv = nn.Sequential(nn.Conv2d(in_channels=in_dim, out_channels=self.chanel_in, kernel_size=1),
-        #                                 nn.BatchNorm2d(self.chanel_in),
-                                        # nn.Tanh())
-        # self.key_conv = nn.Sequential(nn.Conv2d(in_channels=in_dim, out_channels=self.chanel_in, kernel_size=1),
-        #                               nn.BatchNorm2d(self.chanel_in),
-                                      # nn.Tanh())
-        # self.value_conv = nn.Sequential(nn.Conv2d(in_channels=in_dim, out_channels=in_dim, kernel_size=1),
-        #                                 nn.BatchNorm2d(in_dim),
-                                        # nn.Tanh())
-        self.gamma = nn.Parameter(torch.zeros(1))
-
-        self.softmax = nn.Softmax(dim=-1)
-        self.tanh = nn.Tanh()
-    def forward(self, x):
-        """
-            inputs :
-                x : input feature maps( B X C X H X W)
-            returns :
-                out : attention value + input feature
-                attention: B X (HxW) X (HxW)
-        """
-        m_batchsize, C, height, width = x.size()
-        proj_query = self.query_conv(x).view(m_batchsize, -1, width*height).permute(0, 2, 1)
-        proj_key = self.key_conv(x).view(m_batchsize, -1, width*height)
-        energy = torch.bmm(proj_query, proj_key)
-        energy = energy / np.sqrt(C)
-        attention = self.softmax(energy)
-        N = energy.size(-1)
-        attention = attention / N
-        proj_value = self.value_conv(x).view(m_batchsize, -1, width*height)
-
-        out = torch.bmm(proj_value, attention.permute(0, 2, 1))
-        out = out.view(m_batchsize, C, height, width)
-
-        out = self.gamma*out + x
-        # out = out + x
-        out = self.tanh(out)
-        return out
-
-
-class CAM_Module(nn.Module):
-    """ Channel attention module"""
-    def __init__(self, in_dim):
-        super(CAM_Module, self).__init__()
-        self.chanel_in = in_dim
-
-
-        self.gamma = nn.Parameter(torch.zeros(1))
-        self.softmax  = nn.Softmax(dim=-1)
-        self.tanh = nn.Tanh()
-    def forward(self,x):
-        """
-            inputs :
-                x : input feature maps( B X C X H X W)
-            returns :
-                out : attention value + input feature
-                attention: B X C X C
-        """
-        m_batchsize, C, height, width = x.size()
-        proj_query = x.view(m_batchsize, C, -1)
-        proj_key = x.view(m_batchsize, C, -1).permute(0, 2, 1)
-        energy = torch.bmm(proj_query, proj_key)
-        energy = energy / np.sqrt(height*width)
-        energy_new = torch.max(energy, -1, keepdim=True)[0].expand_as(energy)-energy
-        attention = self.softmax(energy_new)
-
-        N = energy.size(-1)
-        attention = attention / N
-        proj_value = x.view(m_batchsize, C, -1)
-
-        out = torch.bmm(attention, proj_value)
-        out = out.view(m_batchsize, C, height, width)
-
-        out = self.gamma * out + x
-        # out = self.tanh(out)
-        return out
-
-
-class DAHead(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(DAHead, self).__init__()
-        inter_channels = in_channels
-
-        # self.conv5a = nn.Sequential(nn.Conv2d(in_channels, inter_channels, 3, padding=1, bias=False),
-        #                             nn.BatchNorm2d(inter_channels),
-        #                             nn.ReLU())
-        #
-        # self.conv5c = nn.Sequential(nn.Conv2d(in_channels, inter_channels, 3, padding=1, bias=False),
-        #                             nn.BatchNorm2d(inter_channels),
-        #                             nn.ReLU())
-        self.gamma = nn.Parameter(torch.zeros(1))
-        self.sa = PAM_Module(inter_channels)
-        # self.sa = GC_Module(in_channels, inter_channels, 'att', ['channel_add', 'channel_mul'])
-        for m in self.sa.modules():
-            if isinstance(m, nn.Conv2d):
-                # init.xavier_uniform(m.weight)
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                init.constant_(m.weight, 1)
-                init.constant_(m.bias, 0)
-
-            elif isinstance(m, nn.Linear):
-                init.xavier_uniform(m.weight)
-                if m.bias is not None:
-                    init.constant(m.bias, 0)
-
-        self.sc = CAM_Module(inter_channels)
-        for m in self.sc.modules():
-            if isinstance(m, nn.Conv2d):
-                # init.xavier_uniform(m.weight)
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                init.constant_(m.weight, 1)
-                init.constant_(m.bias, 0)
-
-            elif isinstance(m, nn.Linear):
-                init.xavier_uniform(m.weight)
-                if m.bias is not None:
-                    init.constant(m.bias, 0)
-
-        self.conv51 = nn.Sequential(nn.Conv2d(inter_channels, inter_channels, 3, padding=1, bias=False),
-                                    nn.BatchNorm2d(inter_channels),
-                                    nn.ReLU())
-        for m in self.conv51.modules():
-            if isinstance(m, nn.Conv2d):
-                # init.xavier_uniform(m.weight)
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                init.constant_(m.weight, 1)
-                init.constant_(m.bias, 0)
-
-            elif isinstance(m, nn.Linear):
-                init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-        self.conv52 = nn.Sequential(nn.Conv2d(inter_channels, inter_channels, 3, padding=1, bias=False),
-                                    nn.BatchNorm2d(inter_channels),
-                                    nn.ReLU())
-        for m in self.conv52.modules():
-            if isinstance(m, nn.Conv2d):
-                # init.xavier_uniform(m.weight)
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                init.constant_(m.weight, 1)
-                init.constant_(m.bias, 0)
-
-            elif isinstance(m, nn.Linear):
-                init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-        self.conv6 = nn.Sequential(nn.Dropout2d(0.1, False), nn.Conv2d(inter_channels, out_channels, 1))
-        for m in self.conv6.modules():
-            if isinstance(m, nn.Conv2d):
-                # init.xavier_uniform(m.weight)
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                init.constant_(m.weight, 1)
-                init.constant_(m.bias, 0)
-
-            elif isinstance(m, nn.Linear):
-                init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-        self.conv7 = nn.Sequential(nn.Dropout2d(0.1, False), nn.Conv2d(inter_channels, out_channels, 1))
-        for m in self.conv7.modules():
-            if isinstance(m, nn.Conv2d):
-                # init.xavier_uniform(m.weight)
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                init.constant_(m.weight, 1)
-                init.constant_(m.bias, 0)
-
-            elif isinstance(m, nn.Linear):
-                init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-        self.conv8 = nn.Sequential(nn.Dropout2d(0.1, False), nn.Conv2d(out_channels, out_channels, 1))
-        for m in self.conv8.modules():
-            if isinstance(m, nn.Conv2d):
-                # init.xavier_uniform(m.weight)
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                init.constant_(m.weight, 1)
-                init.constant_(m.bias, 0)
-
-            elif isinstance(m, nn.Linear):
-                init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    init.constant_(m.bias, 0)
-    def forward(self, x):
-        # feat1 = self.conv5a(x)
-        sa_feat = self.sa(x)
-        # sa_conv = self.conv51(sa_feat)
-        # sa_output = self.conv6(sa_conv)
-
-        # feat2 = self.conv5c(x)
-        sc_feat = self.sc(sa_feat)
-        # sc_conv = self.conv52(sc_feat)
-        # sc_output = self.conv7(sc_conv)
-
-        # feat_sum = sa_feat + self.gamma * sc_feat
-        # sasc_output = self.conv8(feat_sum)
-        return sc_feat
-
-kpt_names = [
-    'body',
-    'left_foot', 'right_foot',
-    'left_hum', 'right_hum',
-    'left_shank', 'right_shank'
-]
-kpt_name_to_ind = dict(zip(kpt_names, range(len(kpt_names))))
 
 def cal_lean_bbox(x1, y1, x2, y2):
     x_len = math.fabs(x1 - x2)
@@ -278,7 +41,6 @@ def part_bbox(point1, point2):
         x, y, w, h = cv2.boundingRect(np.array(list_lean_points))
 
         return [x, y,x+w,y+h] , 1
-        # return list_lean_points, 1
 
 def generate_part(kpts):
     cnt_body ,      flag_body = part_bbox(kpts[2],kpts[13])
@@ -316,10 +78,6 @@ class p_roiAlign(nn.Module):
         x = self.pooler(x,proposal)
 
         return x
-
-
-
-
 
 class MGN(nn.Module):
     def __init__(self):
@@ -390,19 +148,6 @@ class MGN(nn.Module):
         self.fc_id_256_2_1 = nn.Linear(feats, num_classes)
         self.fc_id_256_2_2 = nn.Linear(feats, num_classes)
 
-        ###################################################
-        # self.fc_id_256_3_0 = nn.Linear(feats, num_classes)
-        # self.fc_id_256_3_1 = nn.Linear(feats, num_classes)
-        # self.fc_id_256_3_2 = nn.Linear(feats, num_classes)
-        # self.fc_id_256_3_3 = nn.Linear(feats, num_classes)
-        # self.fc_id_256_3_4 = nn.Linear(feats, num_classes)
-        # self.fc_id_256_3_5 = nn.Linear(feats, num_classes)
-        # self.fc_id_256_3_6 = nn.Linear(feats, num_classes)
-        ###################################################
-        # self.fc_triple_1 = nn.Linear(7 * 512, feats)
-        # self.fc_triple_2 = nn.Linear(feats, num_classes)
-
-
 
         self._init_fc(self.fc_id_2048_0)
         self._init_fc(self.fc_id_2048_1)
@@ -432,7 +177,6 @@ class MGN(nn.Module):
     def _init_reduction(reduction):
         # conv
         nn.init.kaiming_normal_(reduction[0].weight, mode='fan_in')
-        # nn.init.constant_(reduction[0].bias, 0.)
 
         # bn
         nn.init.normal_(reduction[1].weight, mean=1., std=0.02)
@@ -441,7 +185,6 @@ class MGN(nn.Module):
     @staticmethod
     def _init_fc(fc):
         nn.init.kaiming_normal_(fc.weight, mode='fan_out')
-        # nn.init.normal_(fc.weight, std=0.001)
         nn.init.constant_(fc.bias, 0.)
 
     def forward(self, x, kpts):
@@ -501,15 +244,6 @@ class MGN(nn.Module):
         f_part3_p4 = self.reduction_part(part3_p4).squeeze(dim=3).squeeze(dim=2)
         f_part4_p4 = self.reduction_part(part4_p4).squeeze(dim=3).squeeze(dim=2)
         f_part5_p4 = self.reduction_part(part5_p4).squeeze(dim=3).squeeze(dim=2)
-        # visuable = torch.Tensor(visuable).t().to('cuda')
-        # part_feature1 = torch.cat([f_body_p4, f_part0_p4,  f_part1_p4, f_part2_p4, f_part3_p4, f_part4_p4, f_part5_p4], dim=1)
-        #
-        # part_feature2 = self.fc_triple_1(part_feature1)
-        # part_feature3 = self.fc_triple_2(part_feature2)
-
-
-
-
 
         l_p1 = self.fc_id_2048_0(fg_p1)
         l_p2 = self.fc_id_2048_1(fg_p2)
@@ -522,15 +256,6 @@ class MGN(nn.Module):
         l0_p3 = self.fc_id_256_2_0(f0_p3)
         l1_p3 = self.fc_id_256_2_1(f1_p3)
         l2_p3 = self.fc_id_256_2_2(f2_p3)
-
-        ####################################################
-        # l0_p4 = self.fc_id_256_2_2(f_body_p4)
-        # l1_p4 = self.fc_id_256_2_2(f_part0_p4)
-        # l2_p4 = self.fc_id_256_2_2(f_part1_p4)
-        # l3_p4 = self.fc_id_256_2_2(f_part2_p4)
-        # l4_p4 = self.fc_id_256_2_2(f_part3_p4)
-        # l5_p4 = self.fc_id_256_2_2(f_part4_p4)
-        # l6_p4 = self.fc_id_256_2_2(f_part5_p4)
 
         list_for_pose_loss = [f_body_p4, f_part0_p4,  f_part1_p4, f_part2_p4, f_part3_p4, f_part4_p4, f_part5_p4, visuable]
 
