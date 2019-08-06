@@ -161,14 +161,6 @@ class MGN(nn.Module):
         self._init_fc(self.fc_id_256_2_1)
         self._init_fc(self.fc_id_256_2_2)
 
-        # self._init_fc(self.fc_id_256_3_0)
-        # self._init_fc(self.fc_id_256_3_1)
-        # self._init_fc(self.fc_id_256_3_2)
-        # self._init_fc(self.fc_id_256_3_3)
-        # self._init_fc(self.fc_id_256_3_4)
-        # self._init_fc(self.fc_id_256_3_5)
-        # self._init_fc(self.fc_id_256_3_6)
-
         self.pool_body = p_roiAlign(4)
         self.pool_part = p_roiAlign(2)
 
